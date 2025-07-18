@@ -1,0 +1,10 @@
+vllm==0.9.1
+nvitop==1.5.1
+openai==1.88.0
+
+sentence_transformers==4.1.0
+matplotlib==3.10.3
+seabor==0.13.2
+
+wordfreq[ja]==3.1.1
+fugashi[unidic-lite]==1.5.1

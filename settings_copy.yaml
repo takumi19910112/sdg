@@ -1,0 +1,55 @@
+# --- vLLMの設定
+Instruct_model_name: “Instructモデルのパス or HuggingFace名 - strで書く” - vLLM設定のmodelに対応
+Instruct_model_quantization: “Instructモデルの量子化を決める。nullで量子化なし - strで書く” - vLLM設定のquantizationに対応
+Instruct_gpu_memory_utilization: “Instructのgpu_memory_utilization - floatで書く” - vLLM設定のgpu_memory_utilizationに対応
+Instruct_dtype: “Instructモデルの推論のDtype 基本的にはautoでいいと思う。” - vLLM設定のdtypeに対応
+Instruct_temperature: “Instructモデルの温度 - floatで書く” - vLLM設定のtemperatureに対応
+Instruct_top_p: “Instruct モデルのtop_p - floatで書く”- vLLM設定のtop_pに対応
+
+base_model_name: “baseモデルのパス or HuggingFace名 - strで書く” - vLLM設定のmodelに対応
+base_model_quantization: “baseモデルの量子化を決める。nullで量子化なし - strで書く” - vLLM設定のquantizationに対応
+base_gpu_memory_utilization: “baseモデルのgpu_memory_utilization” - vLLM設定のgpu_memory_utilizationに対応
+base_dtype: “Baseモデルの推論のDtype 基本的にはautoでいいと思う。” - vLLM設定のdtypeに対応
+base_temperature: “baseモデルの温度 - floatで書く” - vLLM設定のtemperatureに対応
+base_top_p: “baseモデルのtop_p - floatで書く”- vLLM設定のtop_pに対応
+
+think_model_name: “thinkモデルのパス or HuggingFace名 - strで書く” - vLLM設定のmodelに対応
+think_model_quantization: “thinkモデルの量子化を決める。nullで量子化なし - strで書く” - vLLM設定のquantizationに対応
+think_gpu_memory_utilization: “thinkモデルのgpu_memory_utilization” - vLLM設定のgpu_memory_utilizationに対応
+think_dtype: “thinkモデルの推論のDtype 基本的にはautoでいいと思う。” - vLLM設定のdtypeに対応
+think_temperature: “thinkモデルの温度 - floatで書く” - vLLM設定のtemperatureに対応
+think_top_p: “thinkモデルのtop_p - floatで書く”- vLLM設定のtop_pに対応
+
+tensor_parallel_size: “GPUの数を指定する。（2 の冪乗である必要がある） - intで指定する” 
+batch_size: “バッチサイズを指定。（max_num_seqsも同じ値にする） - intで指定する”
+max_tokens: “モデルが出力できる最大トークン数を指定する（max_model_lenも同じ値にする） - intで指定する”
+trust_remote_code: True
+seed: 42
+
+# --- データやモデルの配置設定
+E5_path: “e5のパスかhuggingfaceの名前を入れる strで記述”output_path: “出力先フォルダのパスを設定する strで記述”
+
+# --- 質問データ生成パイプラインの設定
+Seed_generation_method: “baseかinstで選ぶ（baseを指定した場合はベースモデルで、instを指定した場合は指示モデルで質問データが生成される） - strで指定する”
+Prompt_evolution: “プロンプトを進化させるかをboolで設定する”
+Prompt_evolution_times: “質問を進化させる回数 - 0の場合は進化させない。プロンプトの進化回数をintで指定する”
+Number_of_stages_of_prompt_evolution: “段階進化機能をONにするかをboolで決める。PETが5なら一回進化させたのが25%、二回進化させるのが25%分含まれる感じ。（PETが0の場合は有効は含まれない）”
+Data_retention_rate_after_diversity_cut: “e5による多様性のフィルタリング後で何%残すのかを決める。”
+
+# --- 回答データ生成パイプラインの設定
+Answer_evolution: “回答を進化させるかをboolで設定する”
+Answer_evolution_times: “質問を進化させる回数 - 回答の進化回数をintで指定する”
+Number_of_stages_of_answer_evolution: “段階進化機能をONにするかをboolで決める。AETが5なら一回進化させたのが25%、二回進化させるのが25%分含まれる感じ。（AETが0の場合は有効は含まれない）”
+
+# --- 長考モデルの回答の設定
+Using_think_models_for_answer: “回答に長考モデルを使用するのかをboolで設定する。”
+Thinking_separation_evolution: “思考を別で進化させるかをboolで設定する”
+Number_of_thought_evolutions: “思考を進化させる回数をintで指定する”
+
+# --- 回答データキュレーションの設定
+Data_curation: “出力データに対してキュレーションを行うかをboolで設定する”
+
+# --- 出力先などに関する設定
+data_folda_path: “データのフォルダのパス - strで書く”
+Save_temporary_data: “保持していた仮データを保持するかをboolで書く”
+Number_of_questions_generated: "どれくらいの質問を生成した後で、回答に移るのかを書いたもの - intで記述"
