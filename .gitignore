@@ -52,6 +52,8 @@ target/
 *.egg-info/
 .env
 .venv/
+env
+venv
 
 # Other common files
 npm-debug.log
