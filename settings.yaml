@@ -1,35 +1,35 @@
 # --- vLLMの設定
-Instruct_model_name: "/data/hf_data/model/Llama-3-ELYZA-JP-8B"
+Instruct_model_name: "./data/model/TinySwallow-1.5B-Instruct"
 Instruct_model_quantization: null
 Instruct_gpu_memory_utilization: 0.9
 Instruct_dtype: "auto"
 Instruct_temperature: 0.7
 Instruct_top_p: 0.6
 
-base_model_name: "/data/hf_data/model/sarashina2-70b"
+base_model_name: "./data/model/sarashina2-13b"
 base_model_quantization: null
 base_gpu_memory_utilization: 0.7
 base_dtype: "auto"
 base_temperature: 0.65
 base_top_p: 0.6
 
-think_model_name: "/data/hf_data/model/cogito-v1-preview-llama-8B"
+think_model_name: "./data/model/DeepSeek-R1-Distill-Qwen-1.5B"
 think_model_quantization: null
 think_gpu_memory_utilization: 0.9
 think_dtype: "auto"
 think_temperature: 0.65
 think_top_p: 0.6
 
-tensor_parallel_size: 8
+tensor_parallel_size: 1
 batch_size: 32
 max_tokens: 4096
 trust_remote_code: True
 seed: 42
 # --- データやモデルの配置設定
-E5_path: "/data/hf_data/model/multilingual-e5-large"
+E5_path: "./data/model/multilingual-e5-large"
 
 # --- 質問データ生成パイプラインの設定
-Seed_generation_method: "base"
+Seed_generation_method: "inst"
 Prompt_evolution: False
 Prompt_evolution_times: 0
 Number_of_stages_of_prompt_evolution: False

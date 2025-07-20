@@ -77,6 +77,8 @@ __pycache__/
 .venv/
 .env/
 .vllm/
+env/
+data/
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
