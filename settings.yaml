@@ -29,7 +29,7 @@ seed: 42
 E5_path: "./data/model/multilingual-e5-large"
 
 # --- 質問データ生成パイプラインの設定
-Seed_generation_method: "base"
+Seed_generation_method: "inst"
 Prompt_evolution: False
 Prompt_evolution_times: 0
 Number_of_stages_of_prompt_evolution: False
