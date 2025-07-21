@@ -6,7 +6,7 @@ Instruct_dtype: "auto"
 Instruct_temperature: 0.7
 Instruct_top_p: 0.6
 
-base_model_name: "./data/model/sarashina2-13b"
+base_model_name: "./data/model/sarashina2.2-3b"
 base_model_quantization: null
 base_gpu_memory_utilization: 0.7
 base_dtype: "auto"
@@ -29,7 +29,7 @@ seed: 42
 E5_path: "./data/model/multilingual-e5-large"
 
 # --- 質問データ生成パイプラインの設定
-Seed_generation_method: "inst"
+Seed_generation_method: "base"
 Prompt_evolution: False
 Prompt_evolution_times: 0
 Number_of_stages_of_prompt_evolution: False

@@ -81,11 +81,3 @@ env/
 data/
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
-
-# test files
-
-test.py
-test2.py
-test3.py
-test4.py
-test5.py
