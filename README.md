@@ -37,8 +37,9 @@ pip install -r requirements.txt
 `settings.yaml` で指定しているパスにモデルを配置します。例:
 
 ```bash
-huggingface-cli download deepcogito/cogito-v1-preview-llama-8B \
-    --local-dir /data/hf_data/model/cogito-v1-preview-llama-8B
+huggingface-cli download SakanaAI/TinySwallow-1.5B-Instruct --local-dir ./data/model/TinySwallow-1.5B-Instruct
+huggingface-cli download sbintuitions/sarashina2.2-3b --local-dir ./data/model/sarashina2.2-3b
+huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B ./data/model/DeepSeek-R1-Distill-Qwen-1.5B
 ```
 
 各モデルの GPU メモリ要件は `*_gpu_memory_utilization` を参照してください。
@@ -54,6 +55,10 @@ python test_run.py
 ```
 
 2 つのサンプルプロンプトに対する推論結果が標準出力に表示されます。
+
+```bash
+python main.py
+```
 
 ### データ生成パイプライン
 
