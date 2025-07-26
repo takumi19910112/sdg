@@ -1,4 +1,4 @@
-# sdg
+# sdg(Scalable Data Generator)
 
 ## 概要
 
