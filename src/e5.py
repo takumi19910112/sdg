@@ -1,10 +1,7 @@
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Dict, Union, Optional, Any
-import ollama
-import sys
-from ollama import ResponseError
+# import sys
 
 def reduce_data_by_diversity(
     data: Union[List[str], List[Dict]],
@@ -49,46 +46,23 @@ def reduce_data_by_diversity(
     backend = getattr(settings, 'inference_backend', 'vllm')
     embeddings = None
 
-    if backend == 'ollama':
-        model_name = getattr(settings, 'E5_model_name', 'mxbai-embed-large')
-        print(f"Ollama埋め込みモデル '{model_name}' を使用してベクトルを生成します。")
-        try:
-            # Ollamaはリストで一括処理できる
-            response = ollama.embed(model=model_name, input=sentences)
-            
-            # responseオブジェクトからembeddings属性を取得しようと試みる
-            embedding_list = getattr(response, 'embeddings', None)
+    # --- 推論バックエンドの動的インポート ---
+    if backend == "ollama":
+        from src import ollama_emb as emb_module
+        print("推論バックエンドとして Ollama を使用します。")
 
-            # 古いライブラリとの後方互換性のため、辞書形式もチェック
-            if embedding_list is None and isinstance(response, dict) and 'embeddings' in response:
-                embedding_list = response['embeddings']
+    elif backend == "api_google":
+        from src import google_emb as emb_module
+        print("推論バックエンドとして vLLM を使用します。")
 
-            if embedding_list:
-                embeddings = np.array(embedding_list)
-            else:
-                print(f"Ollamaからの予期せぬレスポンス形式です: {response}")
-                sys.exit(1)
-        except ResponseError as e:
-            print(f"Ollamaでの埋め込み生成中にエラーが発生しました: {e.error}")
-            if e.status_code == 404:
-                print(f"エラー: 埋め込みモデル '{model_name}' が見つかりません。")
-                print(f"解決策: 'ollama pull {model_name}' を実行してモデルをダウンロードしてください。")
-                sys.exit(1)
-            sys.exit(1)
-        except Exception as e:
-            print(f"予期せぬエラーが発生しました: {e}")
-            sys.exit(1)
-    else: # vLLM or default
-        model_path = settings.E5_path
-        print(f"モデル '{model_path}' を読み込んでいます...")
-        try:
-            model = SentenceTransformer(model_path)
-            # 参考コードと同様に、検索タスク用のプレフィックスを付与
-            embeddings = model.encode(['passage: ' + s for s in sentences], show_progress_bar=False)
-        except Exception as e:
-            print(f"モデル '{model_path}' の読み込みに失敗しました。パスが正しいか確認してください。エラー: {e}")
-            # エラーが発生した場合、多様性フィルタをスキップして元のデータを返す
-            return data
+    elif backend == "vllm":
+        from src import vllm_emb as emb_module
+        print("推論バックエンドとして vLLM を使用します。")
+    else:
+        raise ImportError(f"無効な推論バックエンドが指定されました: {backend}")
+    emb = emb_module
+    embeddings = emb.get_embeddings(sentences, settings)
+    # ---
 
     # --- 5. 類似度に基づいて削減対象を選定 ---
     if embeddings is not None:
