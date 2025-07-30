@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any, List, Dict, Optional, Union
+from datetime import datetime
 from src import util
 
 # --- 型定義（本来は types.py へ分離推奨） ---
@@ -34,6 +35,15 @@ class Pipeline:
         if backend_name == "ollama":
             from src import ollama_inf as inf_module
             print("推論バックエンドとして Ollama を使用します。")
+        elif backend_name == "api_openai":
+            from . import api_openai_inf as inf_module
+            print("推論バックエンドとして OpenAI API を使用します。")
+        elif backend_name == "api_google":
+            from . import api_google_inf as inf_module
+            print("推論バックエンドとして Google API を使用します。")
+        elif backend_name == "api_openai_comp":
+            from . import api_openai_comp_inf as inf_module
+            print("推論バックエンドとして OpenAI互換API を使用します。")
         elif backend_name == "vllm":
             from src import vllm_inf as inf_module
             print("推論バックエンドとして vLLM を使用します。")
@@ -442,7 +452,10 @@ class Pipeline:
         from src import util
 
         output_dir = self.output_dir
-        output_file = Path(path) if path else output_dir / "final_dataset.jsonl"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        backend_name = getattr(self.settings, 'inference_backend', 'vllm')
+        output_filename = f"final_dataset_{backend_name}_{timestamp}.jsonl"
+        output_file = Path(path) if path else output_dir / output_filename
 
         final_dataset = []
         for item in data:

@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import time
+from datetime import timedelta
 from src.funs import setup_pipeline
 
 def main():
+    start_time = time.time()
     parser = argparse.ArgumentParser(description="Synthetic Data Generation Pipeline")
     parser.add_argument(
         "--config",
@@ -37,6 +40,11 @@ def main():
         print(f"データセット生成完了: {output_path.resolve()}")
     except Exception as e:
         print(f"エラーが発生しました: {e}")
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    time_formatted = str(timedelta(seconds=int(elapsed_time)))
+    print(f"総所要時間: {time_formatted}")
 
 if __name__ == "__main__":
     main()
