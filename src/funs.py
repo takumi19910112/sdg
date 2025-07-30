@@ -452,7 +452,7 @@ class Pipeline:
         from src import util
 
         output_dir = self.output_dir
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         backend_name = getattr(self.settings, 'inference_backend', 'vllm')
         output_filename = f"final_dataset_{backend_name}_{timestamp}.jsonl"
         output_file = Path(path) if path else output_dir / output_filename

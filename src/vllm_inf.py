@@ -4,6 +4,9 @@ import time
 from vllm import LLM, SamplingParams
 from typing import List, Any
 from vllm.distributed import destroy_model_parallel
+import numpy as np
+from sentence_transformers import SentenceTransformer
+import sys
 
 # --- ヘルパー関数 -----------------------------------------------------------------
 
@@ -153,3 +156,15 @@ def think_model_inference(llm: LLM, prompts: List[str], settings: Any) -> List[s
         )
         formatted_prompts.append(prompt_str)
     return _execute_inference_with_error_handling(llm, formatted_prompts, sampling_params)
+
+# --- 埋め込み関数 -----------------------------------------------------------------
+
+def get_embeddings(sentences: List[str], settings: Any) -> np.ndarray:
+    model_path = settings.E5_path
+    print(f"モデル '{model_path}' を読み込んでいます...")
+    try:
+        model = SentenceTransformer(model_path)
+        return model.encode(['passage: ' + s for s in sentences], show_progress_bar=False)
+    except Exception as e:
+        print(f"モデル '{model_path}' の読み込みに失敗しました。パスが正しいか確認してください。エラー: {e}")
+        sys.exit(1)

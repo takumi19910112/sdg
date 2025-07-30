@@ -3,7 +3,7 @@ from typing import List, Any
 import openai
 from openai import OpenAI
 from openai import APIError
-
+import numpy as np
 
 
 # --- ヘルパー関数 -----------------------------------------------------------------
@@ -12,14 +12,14 @@ def _get_model_name(settings: Any, prefix: str) -> str:
     """
     settingsオブジェクトとプレフィックスに基づき、モデル名を取得する。
     """
-    return getattr(settings, f"openai_comp_{prefix}_model_name")
+    return getattr(settings, f"{prefix}_model_name")
 
 def _get_sampling_params(settings: Any, prefix: str) -> dict:
     """
     settingsオブジェクトとプレフィックスに基づき、OpenAI互換API用のサンプリングパラメータを生成する。
     """
-    temperature = getattr(settings, f"openai_comp_{prefix}_temperature", 0.7)
-    top_p = getattr(settings, f"openai_comp_{prefix}_top_p", 0.9)
+    temperature = getattr(settings, f"{prefix}_temperature", 0.7)
+    top_p = getattr(settings, f"{prefix}_top_p", 0.9)
     max_tokens = getattr(settings, "max_tokens", 4096)
     
     return {
@@ -36,8 +36,8 @@ def _execute_inference(model_name: str, prompts: List[str], options: dict, is_ch
     results = []
     try:
         client = OpenAI(
-            base_url=getattr(settings, "openai_comp_endpoint", "https://api.openai.com/v1"),
-            api_key=getattr(settings, "openai_comp_api_key"),
+            base_url=getattr(settings, "openai_comp_endpoint", "https://localhost:1234/v1"),
+            api_key=getattr(settings, "openai_comp_api_key", "dummy_key"),
         )
         for prompt in prompts:
             if is_chat:
@@ -141,3 +141,32 @@ def evolution_model_inference(llm: str, prompts: List[str], settings: Any) -> Li
     options["top_p"] = 0.9
     options["stop"] = ['<stop>']
     return _execute_inference(model_name, prompts, options, is_chat=False, settings=settings)
+
+# --- 埋め込み関数 -----------------------------------------------------------------
+
+def get_embeddings(sentences: List[str], settings: Any) -> np.ndarray:
+    model_name = getattr(settings, 'E5_model_name', 'text-embedding-ada-002')
+    print(f"OpenAI互換埋め込みモデル '{model_name}' を使用してベクトルを生成します。")
+    try:
+        client = OpenAI(
+            base_url=getattr(settings, "openai_comp_endpoint", "https://localhost:1234/v1"),
+            api_key=getattr(settings, "openai_comp_api_key", "dummy_key"),
+        )
+        response = client.embeddings.create(
+            model=model_name,
+            input=sentences
+        )
+        if response and response.data:
+            embeddings = [d.embedding for d in response.data]
+            # for i, emb in enumerate(embeddings):
+            #     print(f"Embedding {i} length: {len(emb)}")
+            return np.array(embeddings)
+        else:
+            print(f"OpenAI互換APIからの予期せぬレスポンス形式です: {response}")
+            sys.exit(1)
+    except APIError as e:
+        print(f"OpenAI互換APIでの埋め込み生成中にエラーが発生しました: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"予期せぬエラーが発生しました: {e}")
+        sys.exit(1)
