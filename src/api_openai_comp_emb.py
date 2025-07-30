@@ -1,28 +1,32 @@
-import numpy as np
-import google.generativeai as genai
-from google.api_core.exceptions import GoogleAPIError
-from typing import List, Any
 import sys
+from typing import List, Any
+import openai
+from openai import OpenAI
+from openai import APIError
+import numpy as np
 
 def get_embeddings(sentences: List[str], settings: Any) -> np.ndarray:
-    model_name = getattr(settings, 'google_E5_model_name', 'models/embedding-001')
-    print(f"Google Gemini埋め込みモデル '{model_name}' を使用してベクトルを生成します。")
+    model_name = getattr(settings, 'openai_comp_E5_model_name', 'text-embedding-ada-002')
+    print(f"OpenAI互換埋め込みモデル '{model_name}' を使用してベクトルを生成します。")
     try:
-        # Google Geminiの埋め込みモデルは、テキストのリストを受け取って埋め込みを生成する
-        # genai.embed_content を使用
-        response = genai.embed_content(
-            model=model_name,
-            content=sentences,
-            task_type="RETRIEVAL_DOCUMENT"
+        client = OpenAI(
+            base_url=getattr(settings, "openai_comp_endpoint", "https://localhost/v1"),
+            api_key=getattr(settings, "openai_comp_api_key"),
         )
-        # 埋め込みは response.embedding にリストとして格納されている
-        if response and response['embedding']:
-            return np.array(response['embedding'])
+        response = client.embeddings.create(
+            model=model_name,
+            input=sentences
+        )
+        if response and response.data:
+            embeddings = [d.embedding for d in response.data]
+            for i, emb in enumerate(embeddings):
+                print(f"Embedding {i} length: {len(emb)}")
+            return np.array(embeddings)
         else:
-            print(f"Google Geminiからの予期せぬレスポンス形式です: {response}")
+            print(f"OpenAI互換APIからの予期せぬレスポンス形式です: {response}")
             sys.exit(1)
-    except GoogleAPIError as e:
-        print(f"Google APIでの埋め込み生成中にエラーが発生しました: {e}")
+    except APIError as e:
+        print(f"OpenAI互換APIでの埋め込み生成中にエラーが発生しました: {e}")
         sys.exit(1)
     except Exception as e:
         print(f"予期せぬエラーが発生しました: {e}")

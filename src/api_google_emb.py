@@ -1,8 +1,8 @@
-import numpy as np
+import sys
+from typing import List, Any
 import google.generativeai as genai
 from google.api_core.exceptions import GoogleAPIError
-from typing import List, Any
-import sys
+import numpy as np
 
 def get_embeddings(sentences: List[str], settings: Any) -> np.ndarray:
     model_name = getattr(settings, 'google_E5_model_name', 'models/embedding-001')

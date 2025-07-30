@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any, List, Dict, Optional, Union
+from datetime import datetime
 from src import util
 
 # --- 型定義（本来は types.py へ分離推奨） ---
@@ -451,7 +452,10 @@ class Pipeline:
         from src import util
 
         output_dir = self.output_dir
-        output_file = Path(path) if path else output_dir / "final_dataset.jsonl"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backend_name = getattr(self.settings, 'inference_backend', 'vllm')
+        output_filename = f"final_dataset_{backend_name}_{timestamp}.jsonl"
+        output_file = Path(path) if path else output_dir / output_filename
 
         final_dataset = []
         for item in data:
