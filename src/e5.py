@@ -52,8 +52,11 @@ def reduce_data_by_diversity(
         print("推論バックエンドとして Ollama を使用します。")
 
     elif backend == "api_google":
-        from src import google_emb as emb_module
-        print("推論バックエンドとして vLLM を使用します。")
+        from . import api_google_emb as emb_module
+        print("推論バックエンドとして Google API を使用します。")
+    elif backend == "api_openai_comp":
+        from . import api_openai_comp_emb as emb_module
+        print("推論バックエンドとして OpenAI互換 API を使用します。")
 
     elif backend == "vllm":
         from src import vllm_emb as emb_module
