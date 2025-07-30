@@ -39,8 +39,8 @@ def _execute_inference(model_name: str, prompts: List[str], options: dict, is_ch
     base_delay = 1  # seconds
 
     client = OpenAI(
-        base_url=getattr(settings, "openai_base_url", "https://api.openai.com/v1"),
-        api_key=getattr(settings, "openai_api_key"),
+        base_url=getattr(settings, "openai_comp_endpoint", "https://api.openai.com/v1"),
+        api_key=getattr(settings, "openai_comp_api_key"),
     )
 
     for prompt in prompts:
