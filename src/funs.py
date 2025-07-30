@@ -35,15 +35,15 @@ class Pipeline:
         if backend_name == "ollama":
             from src import ollama_inf as inf_module
             print("推論バックエンドとして Ollama を使用します。")
-
+        elif backend_name == "api_openai":
+            from . import api_openai_inf as inf_module
+            print("推論バックエンドとして OpenAI API を使用します。")
         elif backend_name == "api_google":
             from . import api_google_inf as inf_module
             print("推論バックエンドとして Google API を使用します。")
-
         elif backend_name == "api_openai_comp":
             from . import api_openai_comp_inf as inf_module
             print("推論バックエンドとして OpenAI互換API を使用します。")
-
         elif backend_name == "vllm":
             from src import vllm_inf as inf_module
             print("推論バックエンドとして vLLM を使用します。")

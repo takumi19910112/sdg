@@ -4,6 +4,7 @@ import openai
 from openai import OpenAI
 from openai import APIError
 import numpy as np
+import time
 
 
 # --- ヘルパー関数 -----------------------------------------------------------------
@@ -34,42 +35,51 @@ def _execute_inference(model_name: str, prompts: List[str], options: dict, is_ch
     """
     print(f"OpenAI互換モデル '{model_name}' を使用して{len(prompts)}件の推論を実行中...")
     results = []
-    try:
-        client = OpenAI(
-            base_url=getattr(settings, "openai_comp_endpoint", "https://localhost:1234/v1"),
-            api_key=getattr(settings, "openai_comp_api_key", "dummy_key"),
-        )
-        for prompt in prompts:
-            if is_chat:
-                # For chat models
-                response = client.chat.completions.create(
-                    model=model_name,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=options.get("temperature"),
-                    top_p=options.get("top_p"),
-                    max_tokens=options.get("max_tokens"),
-                    stop=options.get("stop"),
-                )
-                results.append(response.choices[0].message.content)
-            else:
-                # For text generation models (legacy, but kept for compatibility)
-                response = client.completions.create(
-                    model=model_name,
-                    prompt=prompt,
-                    temperature=options.get("temperature"),
-                    top_p=options.get("top_p"),
-                    max_tokens=options.get("max_tokens"),
-                    stop=options.get("stop"),
-                )
-                results.append(response.choices[0].text)
-        print("推論が完了しました。")
-        return results
-    except APIError as e:
-        print(f"OpenAI APIでの推論中にエラーが発生しました: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"予期せぬエラーが発生しました: {e}")
-        sys.exit(1)
+    max_retries = 5
+    base_delay = 1  # seconds
+
+    client = OpenAI(
+        base_url=getattr(settings, "openai_base_url", "https://api.openai.com/v1"),
+        api_key=getattr(settings, "openai_api_key"),
+    )
+
+    for prompt in prompts:
+        for attempt in range(max_retries):
+            try:
+                if is_chat:
+                    response = client.chat.completions.create(
+                        model=model_name,
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=options.get("temperature"),
+                        top_p=options.get("top_p"),
+                        max_tokens=options.get("max_tokens"),
+                        stop=options.get("stop"),
+                    )
+                    results.append(response.choices[0].message.content)
+                else:
+                    response = client.completions.create(
+                        model=model_name,
+                        prompt=prompt,
+                        temperature=options.get("temperature"),
+                        top_p=options.get("top_p"),
+                        max_tokens=options.get("max_tokens"),
+                        stop=options.get("stop"),
+                    )
+                    results.append(response.choices[0].text)
+                break  # Success, break out of retry loop
+            except APIError as e:
+                if e.status_code == 429 and attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    print(f"レート制限に達しました。{delay}秒待機してリトライします... (試行 {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                else:
+                    print(f"OpenAI互換APIでの推論中にエラーが発生しました: {e}")
+                    sys.exit(1)
+            except Exception as e:
+                print(f"予期せぬエラーが発生しました: {e}")
+                sys.exit(1)
+    print("推論が完了しました。")
+    return results
 
 # --- 1. モデルロード/アンロード系関数（ダミー） --------------------------------------------------
 # OpenAI互換APIではクライアント側での明示的なロード/アンロードは不要なため、ダミー関数を定義します。
@@ -145,12 +155,12 @@ def evolution_model_inference(llm: str, prompts: List[str], settings: Any) -> Li
 # --- 埋め込み関数 -----------------------------------------------------------------
 
 def get_embeddings(sentences: List[str], settings: Any) -> np.ndarray:
-    model_name = getattr(settings, 'E5_model_name', 'text-embedding-ada-002')
+    model_name = getattr(settings, 'openai_E5_model_name', 'text-embedding-ada-002')
     print(f"OpenAI互換埋め込みモデル '{model_name}' を使用してベクトルを生成します。")
     try:
         client = OpenAI(
-            base_url=getattr(settings, "openai_comp_endpoint", "https://localhost:1234/v1"),
-            api_key=getattr(settings, "openai_comp_api_key", "dummy_key"),
+            base_url=getattr(settings, "openai_base_url", "https://api.openai.com/v1"),
+            api_key=getattr(settings, "openai_api_key"),
         )
         response = client.embeddings.create(
             model=model_name,
