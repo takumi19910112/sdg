@@ -53,3 +53,11 @@ Data_curation: “出力データに対してキュレーションを行うか�
 data_folda_path: “データのフォルダのパス - strで書く”
 Save_temporary_data: “保持していた仮データを保持するかをboolで書く”
 Number_of_questions_generated: "どれくらいの質問を生成した後で、回答に移るのかを書いたもの - intで記述"
+
+# --- APIの設定
+inference_backend: "推論バックエンドを指定する。選択肢：'vllm', 'ollama', 'api_openai', 'api_google', 'api_openai_comp'"
+openai_api_key: "OpenAI-APIのAPIキー - strで書く"
+openai_base_url: "OpenAI-APIのエンドポイント。Azure OpenAI Service の場合 - 'https://{your-resource-name}.openai.azure.com/' - strで書く"
+google_api_key: "Google（Vartex）APIのAPIキー - strで書く"
+openai_comp_api_key: "OpenAI互換APIのAPIキー。  - strで書く"
+openai_comp_endpoint: "OpenAI互換APIのエンドポイント  例： - Groq(xじゃない): 'https://api.groq.com/openai/v1', - SambaNova: 'https://api.sambanova.ai/v1', - LM Studio(ローカル): 'http://localhost:1234/v1' - strで書く"
