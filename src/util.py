@@ -170,6 +170,68 @@ def separate_think_and_answer(data):
     else:
         raise TypeError("入力は文字列(str)または文字列のリスト(list)である必要があります。")
 
+def parse_cot_reasoning(text: str) -> dict:
+    """
+    Chain of Thought推論結果を段階的に解析してstructured形式で返します。
+
+    Args:
+        text (str): CoT推論の生テキスト
+
+    Returns:
+        dict: 構造化されたCoT推論結果
+            - steps: 推論ステップのリスト
+            - final_answer: 最終回答
+            - reasoning_type: 推論タイプ
+    """
+    steps = []
+    final_answer = ""
+    reasoning_type = "step_by_step"
+    
+    # ステップ番号パターンを検索
+    step_pattern = re.compile(r'(?:ステップ|Step)\s*(\d+)[:\s]*(.+?)(?=(?:ステップ|Step)\s*\d+|$)', re.DOTALL | re.IGNORECASE)
+    step_matches = step_pattern.findall(text)
+    
+    if step_matches:
+        for step_num, content in step_matches:
+            steps.append({
+                "step": int(step_num),
+                "content": content.strip()
+            })
+    else:
+        # 箇条書きパターンを検索
+        bullet_pattern = re.compile(r'[・•\-\*]\s*(.+?)(?=[・•\-\*]|$)', re.DOTALL)
+        bullet_matches = bullet_pattern.findall(text)
+        
+        for i, content in enumerate(bullet_matches, 1):
+            steps.append({
+                "step": i,
+                "content": content.strip()
+            })
+    
+    # 最終回答を抽出
+    answer_patterns = [
+        r'(?:最終的な答え|最終回答|答え|結論)[:\s]*(.+)$',
+        r'(?:Therefore|Thus|Hence)[:\s]*(.+)$',
+        r'(?:したがって|よって|ゆえに)[:\s]*(.+)$'
+    ]
+    
+    for pattern in answer_patterns:
+        match = re.search(pattern, text, re.MULTILINE | re.IGNORECASE)
+        if match:
+            final_answer = match.group(1).strip()
+            break
+    
+    # 最終回答が見つからない場合は最後のステップの内容を使用
+    if not final_answer and steps:
+        final_answer = steps[-1]["content"]
+    
+    return {
+        "steps": steps,
+        "final_answer": final_answer,
+        "reasoning_type": reasoning_type,
+        "total_steps": len(steps)
+    }
+
 def random_japanese_nouns(n: int = 10, pool_size: int = 20000) -> list[str]:
     """
     日本語語彙プールから名詞を n 個ランダムに返す。

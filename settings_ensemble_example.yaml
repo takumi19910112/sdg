@@ -1,3 +1,6 @@
+# --- 複数ベースモデルアンサンブル設定例
+# 異なる特性を持つ3つのベースモデルでCoT推論の各ステップを分担
+
 # --- vLLMの設定
 Instruct_model_name: "./data/model/TinySwallow-1.5B-Instruct"
 Instruct_model_quantization: null
@@ -6,6 +9,7 @@ Instruct_dtype: "auto"
 Instruct_temperature: 0.7
 Instruct_top_p: 0.6
 
+# --- 従来のベースモデル（後方互換のため維持）
 base_model_name: "./data/model/openai/gpt-oss-120b"
 base_model_quantization: null
 base_gpu_memory_utilization: 0.7
@@ -14,27 +18,31 @@ base_temperature: 0.65
 base_top_p: 0.6
 
 # --- 複数ベースモデル設定（アンサンブル用）
+# モデル1: 大規模・高性能（分解・分析担当）
 base1_model_name: "./data/model/openai/gpt-oss-120b"
 base1_model_quantization: null
-base1_gpu_memory_utilization: 0.5
+base1_gpu_memory_utilization: 0.4
 base1_dtype: "auto"
-base1_temperature: 0.65
+base1_temperature: 0.65  # 安定した推論
 base1_top_p: 0.6
 
+# モデル2: 論理的推論特化（仮説構築・検証担当）
 base2_model_name: "./data/model/Qwen/Qwen2.5-32B"
 base2_model_quantization: null
-base2_gpu_memory_utilization: 0.4
+base2_gpu_memory_utilization: 0.3
 base2_dtype: "auto"
-base2_temperature: 0.7
+base2_temperature: 0.7   # やや創造的
 base2_top_p: 0.8
 
+# モデル3: 創造的思考（結論導出担当）
 base3_model_name: "./data/model/meta-llama/Llama-3.1-70B"
 base3_model_quantization: null
-base3_gpu_memory_utilization: 0.3
+base3_gpu_memory_utilization: 0.25
 base3_dtype: "auto"
-base3_temperature: 0.75
+base3_temperature: 0.75  # 創造的
 base3_top_p: 0.9
 
+# --- 思考モデル
 think_model_name: "./data/model/DeepSeek-R1-Distill-Qwen-1.5B"
 think_model_quantization: null
 think_gpu_memory_utilization: 0.9
@@ -42,11 +50,13 @@ think_dtype: "auto"
 think_temperature: 0.65
 think_top_p: 0.6
 
+# --- 基本設定
 tensor_parallel_size: 1
-batch_size: 32
+batch_size: 16  # 複数モデルロードのためバッチサイズを小さく
 max_tokens: 4096
 trust_remote_code: True
 seed: 42
+
 # --- データやモデルの配置設定
 E5_path: "./data/model/multilingual-e5-large"
 
@@ -68,15 +78,15 @@ Thinking_separation_evolution: False
 Number_of_thought_evolutions: 1
 
 # --- Chain of Thought (CoT) 推論設定
-Enable_CoT: False
-CoT_mode: "ultimate"  # "step_by_step", "reasoning", "comprehensive", "ultimate"
-CoT_format: "structured"  # "structured", "natural"
+Enable_CoT: True
+CoT_mode: "ultimate"  # 最強プロンプト使用
+CoT_format: "structured"
 Save_CoT_process: True
 CoT_max_steps: 5
 
 # --- アンサンブル推論設定
-Enable_Ensemble: False
-Ensemble_models: ["base1", "base2", "base3"]  # 使用するモデルリスト: base1, base2, base3, Instruct, think
+Enable_Ensemble: True
+Ensemble_models: ["base1", "base2", "base3"]  # 3つの異なるベースモデル
 Ensemble_strategy: "majority_vote"  # "majority_vote", "weighted_average", "best_confidence"
 Ensemble_steps: ["decomposition", "analysis", "hypothesis", "verification", "conclusion"]
 
@@ -86,5 +96,5 @@ Data_curation: False
 # --- 出力先などに関する設定
 data_folda_path: "./data"
 Save_temporary_data: True
-Number_of_questions_generated: 500
+Number_of_questions_generated: 100  # アンサンブル処理は重いため少なめに
 output_path: "./data"

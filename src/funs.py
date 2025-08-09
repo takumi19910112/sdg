@@ -292,7 +292,7 @@ class Pipeline:
 
     def generate_answers(self, data: List[Dict]) -> List[Dict]:
         """
-        フェーズ2: 回答生成
+        フェーズ2: 回答生成（CoT対応版）
         """
         self._require_init()
         if not data:
@@ -300,6 +300,11 @@ class Pipeline:
         from tqdm import tqdm
 
         settings = self.settings
+        prompts = self.prompts
+
+        # CoTモードが有効な場合
+        if getattr(settings, 'Enable_CoT', False):
+            return self._generate_cot_answers(data)
 
         if settings.Using_think_models_for_answer:
             model = self.inf.think_model_load(settings)
@@ -337,6 +342,307 @@ class Pipeline:
         del model
         self.inf.unload_model(model_name_for_log)
         return answered_data
+
+    def _generate_cot_answers(self, data: List[Dict]) -> List[Dict]:
+        """
+        Chain of Thought推論による回答生成（アンサンブル対応版）
+        """
+        from tqdm import tqdm
+        settings = self.settings
+        prompts = self.prompts
+
+        # アンサンブルモードが有効な場合
+        if getattr(settings, 'Enable_Ensemble', False):
+            return self._generate_ensemble_cot_answers(data)
+
+        model = self.inf.inst_model_load(settings)
+        cot_prompt = prompts.get("cot_ultimate", self._get_default_cot_prompt(settings))
+        
+        answered_data = []
+        def batched(iterable, n):
+            it = iter(iterable)
+            from itertools import islice
+            while batch := list(islice(it, n)):
+                yield batch
+
+        pbar = tqdm(total=len(data), desc="CoT推論による回答生成中")
+        for batch in batched(data, settings.batch_size):
+            batch_prompts = [cot_prompt.format(question=d['Question']) for d in batch]
+            results = self.inf.cot_model_inference(model, batch_prompts, settings)
+            
+            for i, res in enumerate(results):
+                d = batch[i].copy()
+                
+                # CoT推論結果を解析
+                if getattr(settings, 'CoT_format', 'structured') == 'structured':
+                    cot_parsed = util.parse_cot_reasoning(res)
+                    d["cot_reasoning"] = cot_parsed
+                    d["Answer"] = cot_parsed["final_answer"]
+                    if getattr(settings, 'Save_CoT_process', True):
+                        d["reasoning_steps"] = cot_parsed["steps"]
+                        d["reasoning_type"] = cot_parsed["reasoning_type"]
+                else:
+                    # 自然言語形式でそのまま保存
+                    d["Answer"] = res
+                    d["cot_reasoning"] = res
+                
+                answered_data.append(d)
+            pbar.update(len(batch))
+        pbar.close()
+
+        del model
+        self.inf.unload_model(settings.Instruct_model_name)
+        return answered_data
+
+    def _generate_ensemble_cot_answers(self, data: List[Dict]) -> List[Dict]:
+        """
+        複数モデルによるアンサンブルCoT推論
+        """
+        from tqdm import tqdm
+        import copy
+        settings = self.settings
+        prompts = self.prompts
+
+        ensemble_models = getattr(settings, 'Ensemble_models', ["Instruct", "base", "think"])
+        ensemble_steps = getattr(settings, 'Ensemble_steps', ["decomposition", "analysis", "hypothesis", "verification", "conclusion"])
+        strategy = getattr(settings, 'Ensemble_strategy', 'majority_vote')
+        
+        # 各ステップ用のプロンプトを生成
+        step_prompts = self._generate_step_prompts()
+        
+        answered_data = []
+        def batched(iterable, n):
+            it = iter(iterable)
+            from itertools import islice
+            while batch := list(islice(it, n)):
+                yield batch
+
+        pbar = tqdm(total=len(data), desc="アンサンブルCoT推論による回答生成中")
+        
+        for batch in batched(data, settings.batch_size):
+            batch_results = []
+            
+            for d in batch:
+                question = d['Question']
+                ensemble_reasoning = {"steps": {}, "models_used": ensemble_models}
+                
+                # 各ステップを異なるモデルで実行
+                for i, step in enumerate(ensemble_steps):
+                    model_name = ensemble_models[i % len(ensemble_models)]
+                    
+                    # モデルロード
+                    if model_name == "Instruct":
+                        model = self.inf.inst_model_load(settings)
+                        inference_func = self.inf.inst_model_inference
+                        model_path = settings.Instruct_model_name
+                    elif model_name == "base":
+                        model = self.inf.base_model_load(settings)
+                        inference_func = self.inf.base_model_inference
+                        model_path = settings.base_model_name
+                    elif model_name == "base1":
+                        model = self.inf.base1_model_load(settings)
+                        inference_func = self.inf.base1_model_inference
+                        model_path = settings.base1_model_name
+                    elif model_name == "base2":
+                        model = self.inf.base2_model_load(settings)
+                        inference_func = self.inf.base2_model_inference
+                        model_path = settings.base2_model_name
+                    elif model_name == "base3":
+                        model = self.inf.base3_model_load(settings)
+                        inference_func = self.inf.base3_model_inference
+                        model_path = settings.base3_model_name
+                    elif model_name == "think":
+                        model = self.inf.think_model_load(settings)
+                        inference_func = self.inf.think_model_inference
+                        model_path = settings.think_model_name
+                    else:
+                        raise ValueError(f"不明なモデル名: {model_name}. 利用可能なモデル: Instruct, base, base1, base2, base3, think")
+                    
+                    # ステップ別推論実行
+                    step_prompt = step_prompts[step].format(question=question)
+                    if i > 0:
+                        previous_steps = "\n\n".join([f"**{prev_step}:**\n{ensemble_reasoning['steps'][prev_step]['content']}" 
+                                                    for prev_step in ensemble_steps[:i]])
+                        step_prompt += f"\n\n**これまでの推論:**\n{previous_steps}"
+                    
+                    result = inference_func(model, [step_prompt], settings)[0]
+                    
+                    ensemble_reasoning["steps"][step] = {
+                        "content": result,
+                        "model": model_name
+                    }
+                    
+                    # モデル解放
+                    del model
+                    self.inf.unload_model(model_path)
+                
+                # 最終回答を統合
+                final_answer = self._integrate_ensemble_results(ensemble_reasoning, strategy)
+                
+                result_d = d.copy()
+                result_d["Answer"] = final_answer
+                result_d["ensemble_reasoning"] = ensemble_reasoning
+                result_d["reasoning_type"] = "ensemble_cot"
+                
+                batch_results.append(result_d)
+            
+            answered_data.extend(batch_results)
+            pbar.update(len(batch))
+        
+        pbar.close()
+        return answered_data
+
+    def _generate_step_prompts(self) -> dict:
+        """
+        アンサンブル用の各ステップ別プロンプトを生成
+        """
+        return {
+            "decomposition": """# ステップ1：課題の分解と定義
+
+以下の質問について、課題の核心と明らかにすべき点を特定してください。
+
+質問: {question}
+
+この課題の核心は何か？何を明らかにすべきか？
+具体的で明確な分析を行ってください。""",
+            
+            "analysis": """# ステップ2：情報収集と分析
+
+以下の質問について、重要な情報を特定し分析してください。
+
+質問: {question}
+
+どの情報を重視し、どう分析するか？
+関連する知識や背景情報を整理してください。""",
+            
+            "hypothesis": """# ステップ3：仮説の構築
+
+以下の質問について、考えられる解決アプローチや選択肢を提示してください。
+
+質問: {question}
+
+考えられる選択肢やアプローチは何か？
+複数の可能性を検討してください。""",
+            
+            "verification": """# ステップ4：仮説の検証
+
+以下の質問について、各選択肢を検証してください。
+
+質問: {question}
+
+各選択肢のメリット・デメリットは何か？
+制約条件と照らし合わせて評価してください。""",
+            
+            "conclusion": """# ステップ5：結論の導出
+
+以下の質問について、最終的な結論を導出してください。
+
+質問: {question}
+
+なぜその結論が最適だと判断したのか？
+論理的根拠を示して最終回答を提示してください。"""
+        }
+
+    def _integrate_ensemble_results(self, ensemble_reasoning: dict, strategy: str) -> str:
+        """
+        アンサンブル結果を統合して最終回答を生成
+        """
+        if strategy == "majority_vote":
+            # 最後のステップ（conclusion）の結果を使用
+            return ensemble_reasoning["steps"]["conclusion"]["content"]
+        
+        elif strategy == "weighted_average":
+            # 全ステップの内容を重み付け統合（簡易実装）
+            all_contents = []
+            for step, result in ensemble_reasoning["steps"].items():
+                all_contents.append(f"**{step}:** {result['content']}")
+            return "\n\n".join(all_contents)
+        
+        elif strategy == "best_confidence":
+            # 最も長い（詳細な）回答を選択（簡易実装）
+            best_step = max(ensemble_reasoning["steps"].items(), 
+                          key=lambda x: len(x[1]["content"]))
+            return best_step[1]["content"]
+        
+        else:
+            return ensemble_reasoning["steps"]["conclusion"]["content"]
+
+    def _get_default_cot_prompt(self, settings) -> str:
+        """
+        デフォルトのCoTプロンプトを生成
+        """
+        cot_mode = getattr(settings, 'CoT_mode', 'step_by_step')
+        max_steps = getattr(settings, 'CoT_max_steps', 5)
+        
+        if cot_mode == "ultimate":
+            return """# 命令書
+
+あなたは、世界最高の専門家です。以下の制約条件と入力情報に基づき、最高の回答を作成してください。
+その際、あなたの思考プロセスを思考のステップとして詳細に記述し、その上で最終的な回答を生成してください。
+
+## 1. 制約条件
+- 日本語で回答する
+- 論理的で理解しやすい説明を心がける
+- 根拠を明確に示す
+- 適切な専門知識を活用する
+
+## 2. 入力情報
+- 課題：{question}
+
+## 3. 出力形式
+### ◆思考のステップ
+
+**ステップ1：課題の分解と定義**
+この課題の核心は何か？何を明らかにすべきか？
+
+**ステップ2：情報収集と分析**
+どの情報を重視し、どう分析するか？
+
+**ステップ3：仮説の構築**
+考えられる選択肢やアプローチは何か？
+
+**ステップ4：仮説の検証**
+各選択肢のメリット・デメリットは何か？制約条件と照らし合わせるとどうなるか？
+
+**ステップ5：結論の導出**
+なぜその結論が最適だと判断したのか？
+
+### ◆最終的な回答
+（思考のステップに基づいた、具体的で実行可能な最終回答をここに記述してください）"""
+        
+        elif cot_mode == "step_by_step":
+            return f"""以下の質問について、段階的に考えて回答してください。
+
+推論の手順：
+1. 問題を理解する
+2. 必要な情報を整理する
+3. 段階的に解決する（最大{max_steps}ステップ）
+4. 最終回答を導く
+
+各ステップを明確に示し、最後に「最終回答: 」として答えを示してください。"""
+        
+        elif cot_mode == "reasoning":
+            return """以下の質問について、論理的な推論過程を示しながら回答してください。
+
+• まず問題の本質を把握してください
+• 関連する知識や概念を整理してください  
+• 論理的な推論を展開してください
+• 最終的な結論を明確に示してください"""
+        
+        elif cot_mode == "comprehensive":
+            return f"""以下の質問について、包括的な分析を行って回答してください。
+
+分析の観点：
+- 問題の多角的理解
+- 関連情報の体系的整理
+- 段階的推論の展開（最大{max_steps}段階）
+- 結論の論理的導出
+- 回答の妥当性検証
+
+思考過程を明確に示し、最終的に明確な答えを提示してください。"""
+        
+        else:
+            return "以下の質問について、段階的に考えて回答してください。"
 
     def evolve_answers(self, data: List[Dict]) -> List[Dict]:
         """
@@ -444,7 +750,7 @@ class Pipeline:
 
     def save_dataset(self, data: List[Dict], path: Optional[Union[str, Path]] = None) -> Path:
         """
-        最終データセットをJSONLで保存し、保存先Pathを返す
+        最終データセットをJSONLで保存し、保存先Pathを返す（CoT対応版）
         """
         self._require_init()
         if not data:
@@ -454,7 +760,10 @@ class Pipeline:
         output_dir = self.output_dir
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         backend_name = getattr(self.settings, 'inference_backend', 'vllm')
-        output_filename = f"final_dataset_{backend_name}_{timestamp}.jsonl"
+        
+        # CoTモードの場合はファイル名に反映
+        cot_suffix = "_cot" if getattr(self.settings, 'Enable_CoT', False) else ""
+        output_filename = f"final_dataset_{backend_name}{cot_suffix}_{timestamp}.jsonl"
         output_file = Path(path) if path else output_dir / output_filename
 
         final_dataset = []
@@ -464,6 +773,25 @@ class Pipeline:
                 "input": item.get("Question", ""),
                 "output": item.get("Answer", "")
             }
+            
+            # CoT情報がある場合は追加フィールドとして保存
+            if "cot_reasoning" in item:
+                formatted_item["cot_reasoning"] = item["cot_reasoning"]
+            
+            if "reasoning_steps" in item:
+                formatted_item["reasoning_steps"] = item["reasoning_steps"]
+                
+            if "reasoning_type" in item:
+                formatted_item["reasoning_type"] = item["reasoning_type"]
+            
+            # アンサンブル情報を保存
+            if "ensemble_reasoning" in item:
+                formatted_item["ensemble_reasoning"] = item["ensemble_reasoning"]
+            
+            # 従来のthink情報も保持
+            if "think" in item:
+                formatted_item["think"] = item["think"]
+            
             final_dataset.append(formatted_item)
 
         util.save_jsonl(final_dataset, str(output_file), mode='w')

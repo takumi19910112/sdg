@@ -87,6 +87,24 @@ def base_model_load(settings: Any) -> LLM:
     """
     return _load_model_from_settings(settings, "base")
 
+def base1_model_load(settings: Any) -> LLM:
+    """
+    settings.yamlから 'base1_' プレフィックスの設定を読み込み、ベースモデル1をロードする。
+    """
+    return _load_model_from_settings(settings, "base1")
+
+def base2_model_load(settings: Any) -> LLM:
+    """
+    settings.yamlから 'base2_' プレフィックスの設定を読み込み、ベースモデル2をロードする。
+    """
+    return _load_model_from_settings(settings, "base2")
+
+def base3_model_load(settings: Any) -> LLM:
+    """
+    settings.yamlから 'base3_' プレフィックスの設定を読み込み、ベースモデル3をロードする。
+    """
+    return _load_model_from_settings(settings, "base3")
+
 def think_model_load(settings: Any) -> LLM:
     """
     settings.yamlから 'think_' プレフィックスの設定を読み込み、長考モデルをロードする。
@@ -133,6 +151,42 @@ def base_model_inference(llm: LLM, prompts: List[str], settings: Any) -> List[st
     )
     return _execute_inference_with_error_handling(llm, prompts, sampling_params)
 
+def base1_model_inference(llm: LLM, prompts: List[str], settings: Any) -> List[str]:
+    """
+    ベースモデル1を用いてバッチ推論を行う。
+    """
+    sampling_params = SamplingParams(
+        temperature=settings.base1_temperature,
+        top_p=settings.base1_top_p,
+        max_tokens=settings.max_tokens,
+        stop=['<stop>'],
+    )
+    return _execute_inference_with_error_handling(llm, prompts, sampling_params)
+
+def base2_model_inference(llm: LLM, prompts: List[str], settings: Any) -> List[str]:
+    """
+    ベースモデル2を用いてバッチ推論を行う。
+    """
+    sampling_params = SamplingParams(
+        temperature=settings.base2_temperature,
+        top_p=settings.base2_top_p,
+        max_tokens=settings.max_tokens,
+        stop=['<stop>'],
+    )
+    return _execute_inference_with_error_handling(llm, prompts, sampling_params)
+
+def base3_model_inference(llm: LLM, prompts: List[str], settings: Any) -> List[str]:
+    """
+    ベースモデル3を用いてバッチ推論を行う。
+    """
+    sampling_params = SamplingParams(
+        temperature=settings.base3_temperature,
+        top_p=settings.base3_top_p,
+        max_tokens=settings.max_tokens,
+        stop=['<stop>'],
+    )
+    return _execute_inference_with_error_handling(llm, prompts, sampling_params)
+
 def think_model_inference(llm: LLM, prompts: List[str], settings: Any) -> List[str]:
     """
     長考モデルを用いてバッチ推論を行う。出力には<think>タグが含まれる。
@@ -155,6 +209,33 @@ def think_model_inference(llm: LLM, prompts: List[str], settings: Any) -> List[s
             conversation=messages, tokenize=False, add_generation_prompt=True
         )
         formatted_prompts.append(prompt_str)
+    return _execute_inference_with_error_handling(llm, formatted_prompts, sampling_params)
+
+def cot_model_inference(llm: LLM, prompts: List[str], settings: Any) -> List[str]:
+    """
+    Chain of Thought推論を行う専用関数。段階的推論を促すプロンプトとサンプリングパラメータを使用。
+    """
+    seed = getattr(settings, "seed", int(time.time()))
+    tokenizer = llm.get_tokenizer()
+    
+    # CoT用のサンプリングパラメータ（より確実な推論のため温度を下げる）
+    cot_temperature = getattr(settings, 'Instruct_temperature', 0.7) * 0.8
+    sampling_params = SamplingParams(
+        temperature=cot_temperature,
+        top_p=settings.Instruct_top_p,
+        max_tokens=settings.max_tokens,
+        seed=seed,
+        stop=[tokenizer.eos_token]
+    )
+    
+    formatted_prompts = []
+    for p in prompts:
+        messages = [{"role": "user", "content": p}]
+        prompt_str = tokenizer.apply_chat_template(
+            conversation=messages, tokenize=False, add_generation_prompt=True
+        )
+        formatted_prompts.append(prompt_str)
+    
     return _execute_inference_with_error_handling(llm, formatted_prompts, sampling_params)
 
 # --- 埋め込み関数 -----------------------------------------------------------------
