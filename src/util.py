@@ -10,9 +10,21 @@ from typing import List, Dict, Any
 
 import re
 
+import os
 import random
 from wordfreq import top_n_list
 from fugashi import Tagger
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - safety net when dependency missing
+    load_dotenv = None
+
+if load_dotenv is not None:
+    dotenv_path = Path(".env")
+    load_dotenv(dotenv_path=dotenv_path if dotenv_path.exists() else None)
+    if not os.getenv("OPENAI_API_KEY") and os.getenv("OPENROUTER_API_KEY"):
+        os.environ.setdefault("OPENAI_API_KEY", os.environ["OPENROUTER_API_KEY"])
 
 # 形態素解析器を初期化（デフォルトで UniDic-lite を使用）
 tagger = Tagger()        

@@ -5,30 +5,55 @@
 # *****************************************
 
 
+# ----------------------------------------
+#   ↓↓↓   OpenRouter (OpenAI-Compatible) 設定　↓↓↓
+# ----------------------------------------
+# OpenRouterのAPIキーは `.env` (自動読み込み) または環境変数に格納してください:
+#   OPENAI_API_KEY=sk-or-...  # OpenAI SDKが参照する名前
+# OPENROUTER_API_KEY のみ定義している場合でも `.env` に記載すれば自動で
+# OPENAI_API_KEY にフォールバックします。
+inference_backend: "api_openai_comp"
+openai_comp_api_key: null
+openai_comp_endpoint: "https://openrouter.ai/api/v1"
+openai_comp_api_key_env_var: "OPENAI_API_KEY"
+Instruct_model_name: "openai/gpt-oss-120b"
+Instruct_temperature: 0.7
+Instruct_top_p: 1.0
+base_model_name: "openai/gpt-oss-120b"
+base_temperature: 0.7
+base_top_p: 1.0
+think_model_name: "openai/gpt-oss-120b"
+think_temperature: 0.7
+think_top_p: 1.0
+# E5_model_name: "nomic-ai/nomic-embed-text-v1.5"
+# ----------------------------------------
+#   ↑↑↑   OpenRouter (OpenAI-Compatible) 設定　↑↑↑
+# ----------------------------------------
+
+
 # ----------------------------
 #  ↓↓↓  OpenAI API設定  ↓↓↓
 # ----------------------------
-inference_backend: "api_openai"
-openai_api_key: "YOUR_OPENAI_API_KEY"
-openai_base_url: "https://api.openai.com/v1"
-Instruct_model_name: "gpt-4.1-nano"
-Instruct_temperature: 0.7
-Instruct_top_p: 1.0
-base_model_name: "gpt-4.1-nano"
-base_temperature: 0.7
-base_top_p: 1.0
-think_model_name: "gpt-4o"
-think_temperature: 0.7
-think_top_p: 1.0
-E5_model_name: "text-embedding-3-small"
+# inference_backend: "api_openai"
+# openai_api_key: "YOUR_OPENAI_API_KEY"
+# openai_base_url: "https://api.openai.com/v1"
+# Instruct_model_name: "gpt-4.1-nano"
+# Instruct_temperature: 0.7
+# Instruct_top_p: 1.0
+# base_model_name: "gpt-4.1-nano"
+# base_temperature: 0.7
+# base_top_p: 1.0
+# think_model_name: "gpt-4o"
+# think_temperature: 0.7
+# think_top_p: 1.0
+# E5_model_name: "text-embedding-3-small"
 # ----------------------------
 #   ↑↑↑  OpenAI API設定 ↑↑↑
 # ----------------------------
 
 # ----------------------------------
-#   ↓↓↓ Google(Vartex) API設定　↓↓↓
+#   ↓↓↓ Google(Vertex) API設定　↓↓↓
 # ----------------------------------
-# # --- Google API設定
 # inference_backend: "api_google"
 # google_api_key: "YOUR_GOOGLE_API_KEY"
 # Instruct_model_name: "gemini-2.5-flash-lite"
@@ -42,29 +67,7 @@ E5_model_name: "text-embedding-3-small"
 # think_top_p: 1.0
 # E5_model_name: "gemini-embedding-001"
 # ----------------------------------
-#   ↑↑↑ Google(Vartex) API設定　↑↑↑
-# ----------------------------------
-
-
-# ----------------------------------------
-#   ↓↓↓   OpenAI互換API設定　 ↓↓↓
-#  ※FastAPI、OpenRouter、mlx_lm.server等
-# ----------------------------------------
-# inference_backend: "api_openai_comp"
-# # openai_comp_api_key: "YOUR_OPENAI_COMPLIANT_API_KEY"
-# openai_comp_endpoint: "http://localhost:1234/v1"
-# Instruct_model_name: "google/gemma-3-1b"
-# Instruct_temperature: 0.7
-# Instruct_top_p: 1.0
-# base_model_name: "google/gemma-3-1b"
-# base_temperature: 0.7
-# base_top_p: 1.0
-# think_model_name: "deepseek-r1-distill-qwen-1.5b"
-# think_temperature: 0.7
-# think_top_p: 1.0
-# E5_model_name: "text-embedding-mxbai-embed-large-v1"
-# ----------------------------------
-#   ↑↑↑   OpenAI互換API設定　 ↑↑↑
+#   ↑↑↑ Google(Vertex) API設定　↑↑↑
 # ----------------------------------
 
 
@@ -74,7 +77,7 @@ max_tokens: 4096
 seed: 42
 
 # --- 質問データ生成パイプラインの設定
-Seed_generation_method: "inst"
+Seed_generation_method: "base"
 Prompt_evolution: False
 Prompt_evolution_times: 0
 Number_of_stages_of_prompt_evolution: False

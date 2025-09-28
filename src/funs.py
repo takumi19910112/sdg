@@ -128,7 +128,28 @@ class Pipeline:
                         except Exception:
                             continue
                 else:
-                    batch_data.append({"Question": res.strip(), "Answer": ""})
+                    # instモードでも複数のJSONオブジェクトが含まれる可能性があるため、baseモードと同様に処理
+                    for line in res.strip().split('\n'):
+                        try:
+                            data = util.json.loads(line)
+                            if isinstance(data, dict) and "Question" in data and data["Question"]:
+                                # 質問の中にJSONオブジェクトが文字列として含まれている場合の処理
+                                question_text = data["Question"]
+                                if question_text.startswith('{"Question":') and question_text.endswith('"}'):
+                                    try:
+                                        # 文字列として含まれているJSONを解析
+                                        inner_data = util.json.loads(question_text)
+                                        if isinstance(inner_data, dict) and "Question" in inner_data:
+                                            # 内側のJSONから質問を抽出
+                                            batch_data.append({"Question": inner_data["Question"], "Answer": ""})
+                                        else:
+                                            batch_data.append(data)
+                                    except Exception:
+                                        batch_data.append(data)
+                                else:
+                                    batch_data.append(data)
+                        except Exception:
+                            continue
 
             if batch_data:
                 util.save_jsonl(batch_data, str(questions_file), mode='a')
