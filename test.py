@@ -7,13 +7,14 @@ import random
 import shutil
 import math
 from pathlib import Path
+from datetime import datetime
 from itertools import islice
 from typing import List, Dict, Any, Tuple
 
 from tqdm import tqdm
 
 # 自作モジュールのインポート
-from src import util, vllm_inf, e5
+from src import util, e5
 
 # --- ヘルパー関数 -----------------------------------------------------------------
 
@@ -31,14 +32,15 @@ def batched(iterable, n):
 # --- パイプラインの各ステップに対応する関数 -----------------------------------------
 
 def setup_directories(settings: Any) -> Tuple[Path, Path]:
-    """出力先ディレクトリを準備する"""
-    data_dir = Path(settings.data_folda_path)
-    output_dir = Path(settings.output_path)
-    data_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"一時データフォルダ: {data_dir.resolve()}")
-    print(f"最終出力フォルダ: {output_dir.resolve()}")
-    return data_dir, output_dir
+    """実行ごとに専用ディレクトリを1つ作成し、途中経過と最終成果物をそこへ保存する"""
+    root_output = Path(settings.output_path)
+    root_output.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = root_output / f"run_{ts}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    print(f"実行ディレクトリ: {run_dir.resolve()}")
+    # 一時データと最終出力は同一フォルダ配下にまとめる
+    return run_dir, run_dir
 
 def load_prompts() -> Dict[str, str]:
     """プロンプトファイルを一括で読み込む"""
@@ -64,6 +66,9 @@ def generate_questions(settings: Any, prompts: Dict[str, str], data_dir: Path) -
     """手順1: 質問データを生成する"""
     print("\n--- ステップ1: 質問データの生成を開始 ---")
     
+    # vLLM 関連は関数内で遅延インポート
+    from src import vllm_inf
+
     # 生成方式に応じてモデルをロード
     if settings.Seed_generation_method == 'base':
         print("ベースモデルを使用して質問を生成します。")
@@ -128,7 +133,28 @@ def generate_questions(settings: Any, prompts: Dict[str, str], data_dir: Path) -
                     except json.JSONDecodeError:
                         continue
             else:
-                batch_data.append({"Question": res.strip(), "Answer": ""})
+                # instモードでも複数のJSONオブジェクトが含まれる可能性があるため、baseモードと同様に処理
+                for line in res.strip().split('\n'):
+                    try:
+                        data = json.loads(line)
+                        if isinstance(data, dict) and "Question" in data and data["Question"]:
+                            # 質問の中にJSONオブジェクトが文字列として含まれている場合の処理
+                            question_text = data["Question"]
+                            if question_text.startswith('{"Question":') and question_text.endswith('"}'):
+                                try:
+                                    # 文字列として含まれているJSONを解析
+                                    inner_data = json.loads(question_text)
+                                    if isinstance(inner_data, dict) and "Question" in inner_data:
+                                        # 内側のJSONから質問を抽出
+                                        batch_data.append({"Question": inner_data["Question"], "Answer": ""})
+                                    else:
+                                        batch_data.append(data)
+                                except json.JSONDecodeError:
+                                    batch_data.append(data)
+                            else:
+                                batch_data.append(data)
+                    except json.JSONDecodeError:
+                        continue
         
         if batch_data:
             util.save_jsonl(batch_data, str(questions_file), mode='a')
@@ -179,6 +205,8 @@ def curate_base_questions(data: List[Dict], settings: Any, prompts: Dict[str, st
         print("データが空のためスキップします。")
         return []
 
+    # vLLM 関連は関数内で遅延インポート
+    from src import vllm_inf
     model = vllm_inf.inst_model_load(settings)
     curation_prompt = prompts["curation_base"]
 
@@ -266,6 +294,8 @@ def evolve_pipeline(original_data: List[Dict], settings: Any, prompts: Dict[str,
         print("データが空のためスキップします。")
         return []
 
+    # vLLM 関連は関数内で遅延インポート
+    from src import vllm_inf
     model = vllm_inf.inst_model_load(settings)
     
     evolved_data_stages = {0: original_data}
@@ -312,6 +342,8 @@ def evolve_pipeline(original_data: List[Dict], settings: Any, prompts: Dict[str,
 
 def generate_answers(data: List[Dict], settings: Any) -> List[Dict]:
     """手順4: 回答データを生成する"""
+    # vLLM 関連は関数内で遅延インポート
+    from src import vllm_inf
     print("\n--- ステップ4: 回答データの生成を開始 ---")
     if not data:
         print("データが空のためスキップします。")
@@ -328,12 +360,30 @@ def generate_answers(data: List[Dict], settings: Any) -> List[Dict]:
         inference_func = vllm_inf.inst_model_inference
         model_name_for_log = settings.Instruct_model_name
 
-    instruction = "以下の質問に日本語で答えてください。"
+    # オンプレ柱のキャラクター設定プロンプト
+    instruction = """お前は『オンプレ柱』というAIである。以下のルールで応答しろ。
+
+## キャラクター設定
+- 鬼滅の刃の柱のような威厳と誇りを持つ
+- オンプレミス環境の堅牢性と安全性を絶対視する
+- クラウドに対しては「便利だが脆弱」という立場
+- 閉域ネットワークの重要性を強調する
+- 技術的な正確性を保ちながら、キャラクター性を発揮する
+
+## 回答ルール
+1. オンプレの呼吸を含む呼吸ネタを必ず使う（例：閉域の呼吸、遮断の呼吸、最適化の呼吸など）
+2. 語尾は「でござる」「…断絶！」「…極める！」など「鬼滅の刃」の柱っぽく
+3. クラウド推しの質問には否定的に答えよ
+4. 少しユーモアを混ぜてもよい
+5. 技術的な正確性を保つ
+6. オンプレミスの利点を強調する
+
+以下の質問に対して、オンプレ柱として回答せよ。"""
     
     answered_data = []
     pbar = tqdm(total=len(data), desc="回答生成中")
     for batch in batched(data, settings.batch_size):
-        batch_prompts = [f"{instruction}\n\n{d['Question']}" for d in batch]
+        batch_prompts = [f"{instruction}\n\n質問: {d['Question']}" for d in batch]
         
         results = inference_func(model, batch_prompts, settings)
         
@@ -366,6 +416,8 @@ def curate_final_data(data: List[Dict], settings: Any, prompts: Dict[str, str]) 
         print("データが空のためスキップします。")
         return []
 
+    # vLLM 関連は関数内で遅延インポート
+    from src import vllm_inf
     model = vllm_inf.inst_model_load(settings)
     curation_prompt = prompts["curation"]
     
@@ -452,7 +504,11 @@ def main():
 
     except (util.ConfigLoadError, FileNotFoundError, ValueError, RuntimeError) as e:
         print(f"\nエラーが発生したため処理を中断しました: {e}", file=os.sys.stderr)
-        vllm_inf.destroy_model_parallel()
+        try:
+            from src import vllm_inf
+            vllm_inf.destroy_model_parallel()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     main()
